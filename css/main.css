@@ -1,0 +1,70 @@
+@charset "utf-8";
+body , html{
+	margin: 0px;
+	padding: 0px;
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
+}
+body {
+	background-color: #000;
+	position: relative;
+	font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;
+}
+.loadingOverlay {
+	background-color: #000;
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	right: 0px;
+	bottom: 0px;
+	z-index: 99999;
+}
+.floatingWindows {
+	overflow: visible;
+	position: absolute;
+	z-index: 100;
+	height: 0px;
+	width: 0px;
+}
+
+.loadingOverlay h1 {
+	margin: 10px;
+	padding: 0px;
+	color: #FFF;
+}
+
+
+.headerbar {
+	background-color: #999;
+	background-image: url(../images/stone.png);
+	background-repeat: repeat;
+	height: 50px;
+	width: 100%;
+	padding-left: 10px;
+}
+.navButton {
+	margin-top: 5.45px;
+}
+
+.content {
+	background-image: url(../images/stonebrick.png);
+	background-repeat: repeat;
+	position: absolute;
+	left: 0px;
+	top: 50px;
+	right: 0px;
+	bottom: 0px;
+}
+.dialogInput {
+	display: block;
+	margin-left: 0px;
+	width: 100%;
+}
+.itemDialogContainer {
+	height: 300px;
+	width: 800px;
+}
+.itemListSearch {
+	height: 30px;
+}
