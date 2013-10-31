@@ -98,8 +98,8 @@ var ItemRegister = {
 	items: [],
 	customItems: [],
 	
-	create: function(name, id, texture){
-		this.items[this.items.length] = new this.Item(name, id, texture);
+	create: function(name, id, data, friendlyName, texture){
+		this.items[this.items.length] = new this.Item(name, id, data, friendlyName, texture);
 	},
 	
 	Item: function(name, id, metaData, friendlyName, texture){
@@ -125,23 +125,38 @@ var ItemRegister = {
 	},
 	
 	init: function(){
-		create("minecraft:stone", 1, "Stone", "stone");
-		this.UnknownItem = new this.Item("Unknown Item", -1, "unknown");
+		this.create("minecraft:stone", 1, 0, "Stone", "stone");
+        this.create("minecraft:dirt", 2, 0, "Dirt", "dirt");
+        this.create("minecraft:grass", 3, 0, "Grass", "grass_side");
+		this.UnknownItem = new this.Item("Unknown Item", -1, 0, "unknown");
 	},
 	
 	makeItemContainer: function(itemList){
-		holder = $("<div/>", {
+		this.holder = $("<div/>", {
 			"class": "itemDialogContainer"
 		});
 		
-		searchBar = $("<input>", {
+		this.searchBar = $("<input>", {
 			"class": "dialogInput itemListSearch ui-widget-content ui-corner-all",
 			id: "itemListSearch"
-		});
+		}).val("NYI").attr("disabled", "true");
+        
+        this.itemsContainer = $("<div/>", {
+        	"class": "itemListIconsContainer"
+        });
+        
+        console.log(itemList);
+        
+        for(k in itemList){
+        	newItem = $("<div/>", {
+            	"class": "item"
+            }).click(function(){
+            	$(this).toggleClass("selected")
+            }).css("background-image", "url(images/icons/"+itemList[k].texture+".png)");
+        	this.itemsContainer.append(newItem);
+        }
 		
-		holder.append(searchBar);
-		
-		return holder;
+		this.holder.append(this.searchBar).append(this.itemsContainer);
 	}
 };
 
@@ -246,7 +261,10 @@ function ItemSelectDialog(itemList, callback){
 	this.container = $("<div/>", {
 		title: "Select Item"
 	});
-	this.container.append(ItemRegister.makeItemContainer(itemList));
+    
+    this.containerObject = new ItemRegister.makeItemContainer(itemList);
+    
+	this.container.append(this.containerObject.holder);
 	
 	this.diagCallback = function(){
 		callback();
@@ -278,8 +296,15 @@ function showItemSelectDialog(itemList, callback){
 $(document).ready(function(e) {
     $(".navButton").button().click(function(event){
 		event.preventDefault();
+        
+        switch($(this).attr("id")){
+        	case "openItemDialog":
+            	showItemSelectDialog(ItemRegister.items, function(){});
+            break;
+        }
 	});
 	Enchantments.init();
+    ItemRegister.init();
 	
 	$(".loadingOverlay").hide();
 });

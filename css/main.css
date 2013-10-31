@@ -68,3 +68,40 @@ body {
 .itemListSearch {
 	height: 30px;
 }
+.itemListIconsContainer {
+	height: 260px;
+	width: 800px;
+	margin-top: 10px;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+.itemListIconsContainer .item {
+	width: 32px;
+    height: 32px;
+    float: left;
+    padding: 5px;
+    border: 1px solid #000;
+    margin-bottom: 2px;
+    margin-right: 2px;
+    background-position: center center;
+}
+
+.itemListIconsContainer .item:after {
+	width: 10px;
+    height: 10px;
+    position: relative;
+    margin-left: -5px;
+    margin-top: 27px;
+    background-color: #0C0;
+    display: none;
+    content: "";
+}
+
+.itemListIconsContainer .item.selected {
+	border-color: #0C0;
+}
+
+.itemListIconsContainer .item.selected:after {
+	display:block;
+}
