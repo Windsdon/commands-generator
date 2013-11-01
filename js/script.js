@@ -97,6 +97,7 @@ function makeItem(id, damage, count, slot){
 var ItemRegister = {
 	items: [],
 	customItems: [],
+    currentUID: 0,
 	
 	create: function(name, id, data, friendlyName, texture){
 		this.items[this.items.length] = new this.Item(name, id, data, friendlyName, texture);
@@ -108,6 +109,7 @@ var ItemRegister = {
 		this.friendlyName = friendlyName; //eg Stone
 		this.metaData = metaData;
 		this.texture = texture;
+        this.UID = ItemRegister.currentUID++;
 	},
 	
 	add: function(mcitem){
@@ -131,29 +133,76 @@ var ItemRegister = {
 		this.UnknownItem = new this.Item("Unknown Item", -1, 0, "unknown");
 	},
 	
-	makeItemContainer: function(itemList){
+	makeItemContainer: function(itemList, multipleSelection){
 		this.holder = $("<div/>", {
 			"class": "itemDialogContainer"
 		});
+        
+        this.searchBarTyped = function(event){
+        	owner = $(this).data("owner");
+            itemList = owner.itemList;
+            search = $(this).val();
+            reg = new RegExp(search, "gi");
+            
+            for(k in itemList){
+            	item = itemList[k];
+                itemObj = item.data("item");
+            	if(itemObj.friendlyName.match(reg)){
+                	item.removeClass("hidden");
+                }else{
+                	if(!item.hasClass("hidden")){
+                    	item.addClass("hidden");
+                    }
+                }
+            }
+        };
 		
 		this.searchBar = $("<input>", {
 			"class": "dialogInput itemListSearch ui-widget-content ui-corner-all",
 			id: "itemListSearch"
-		}).val("NYI").attr("disabled", "true");
+		}).keyup(this.searchBarTyped).data("owner", this);
         
         this.itemsContainer = $("<div/>", {
         	"class": "itemListIconsContainer"
         });
         
-        console.log(itemList);
+        this.multipleSelection = multipleSelection;
         
+        this.itemSelectedCheck = function(){
+        	owner = $(this).data("owner");
+            console.log(owner);
+            owner.itemSelected(this);
+        };
+        
+        this.itemSelected = function(obj){
+        	if(!this.multipleSelection){
+            	this.itemsContainer.children(".item").each(function(){
+                	if($(this).data("item").UID != $(obj).data("item").UID){
+                    	$(this).removeClass("selected");
+                    }
+                });
+            }
+            
+            $(obj).toggleClass("selected");	
+        }
+        
+        this.itemList = new Array();
         for(k in itemList){
         	newItem = $("<div/>", {
             	"class": "item"
-            }).click(function(){
-            	$(this).toggleClass("selected")
-            }).css("background-image", "url(images/icons/"+itemList[k].texture+".png)");
+            }).click(this.itemSelectedCheck).css("background-image", "url(images/icons/"+itemList[k].texture+".png)")
+            .disableSelection()
+            .data("owner", this)
+            .data("item", itemList[k])
+            .tooltip({
+            	content: itemList[k].friendlyName,
+                items: ".item",
+                track: true,
+                show: false,
+                hide: false
+            });
         	this.itemsContainer.append(newItem);
+            this.itemList.push(newItem);
         }
 		
 		this.holder.append(this.searchBar).append(this.itemsContainer);
@@ -256,13 +305,13 @@ function showItemDialog(itemObject){
 	}
 }
 
-function ItemSelectDialog(itemList, callback){
+function ItemSelectDialog(itemList, multiple, callback){
 	this.itemLIst = itemList;
 	this.container = $("<div/>", {
 		title: "Select Item"
 	});
     
-    this.containerObject = new ItemRegister.makeItemContainer(itemList);
+    this.containerObject = new ItemRegister.makeItemContainer(itemList, multiple);
     
 	this.container.append(this.containerObject.holder);
 	
@@ -289,8 +338,8 @@ function ItemSelectDialog(itemList, callback){
 	});
 }
 
-function showItemSelectDialog(itemList, callback){
-	return new ItemSelectDialog(itemList, callback);
+function showItemSelectDialog(itemList, multiple, callback){
+	return new ItemSelectDialog(itemList, multiple, callback);
 }
 
 $(document).ready(function(e) {
@@ -299,7 +348,7 @@ $(document).ready(function(e) {
         
         switch($(this).attr("id")){
         	case "openItemDialog":
-            	showItemSelectDialog(ItemRegister.items, function(){});
+            	showItemSelectDialog(ItemRegister.items, false, function(){});
             break;
         }
 	});

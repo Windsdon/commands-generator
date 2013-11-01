@@ -80,19 +80,24 @@ body {
 	width: 32px;
     height: 32px;
     float: left;
-    padding: 5px;
+    padding: 0;
     border: 1px solid #000;
     margin-bottom: 2px;
     margin-right: 2px;
     background-position: center center;
+    position: relative;
+}
+
+.itemListIconsContainer .item.hidden {
+	display: none;
 }
 
 .itemListIconsContainer .item:after {
 	width: 10px;
     height: 10px;
     position: relative;
-    margin-left: -5px;
-    margin-top: 27px;
+    margin-left: 0;
+    margin-top: 22px;
     background-color: #0C0;
     display: none;
     content: "";
