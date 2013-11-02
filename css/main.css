@@ -68,3 +68,103 @@ body {
 .itemListSearch {
 	height: 30px;
 }
+.itemListIconsContainer {
+	height: 260px;
+	width: 800px;
+	margin-top: 10px;
+	overflow-x: hidden;
+	overflow-y: scroll;
+}
+
+.itemListIconsContainer .item {
+	width: 64px;
+    height: 64px;
+    float: left;
+    padding: 0;
+    border: 3px solid #AAA;
+    margin-bottom: 2px;
+    margin-right: 2px;
+    background-position: center center;
+    position: relative;
+}
+
+.itemListIconsContainer .item.hidden {
+	display: none;
+}
+
+.itemListIconsContainer .item:after {
+	width: 16px;
+    height: 16px;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background-color: #0C0;
+    background-image: url(../images/check-16.png);
+    background-position: center center;
+    background-repeat: no-repeat;
+    display: none;
+    content: "";
+}
+
+.itemListIconsContainer .item.selected {
+	border-color: #0C0;
+}
+
+.itemListIconsContainer .item.selected:after {
+	display:block;
+}
+
+.itemEditorDialogContainer {
+	overflow-x: hidden;
+    position: relative;
+    padding: 8px 15px;
+}
+
+.itemEditorDialogContainer .itemEditorInputLine {
+	height: 30px;
+    position: relative;
+    margin: 0;
+    margin-top: 5px;
+}
+
+.itemEditorDialogContainer .itemEditorInputLine input {
+	position: absolute;
+    left: 200px;
+    right: 0;
+    bottom: 0;
+    top: 0;
+}
+
+.itemEditorDialog .itemEditorInputLine label {
+	position: absolute;
+    left: 0;
+    bottom: 0;
+    top: 0;
+    width: 200px;
+    line-height: 30px;
+}
+
+.dialogItemSelector {
+	width: 100%;
+    height: 74px;
+    background-color: #bbb;
+    overflow-x: hidden;
+    cursor: pointer;
+}
+
+.dialogItemSelector .item {
+	width: 64px;
+    height: 64px;
+    float: left;
+    margin: 5px;
+    background-position: center center;
+    position: relative;
+}
+
+.dialogItemSelector .itemName {
+	display: block;
+    width: 100%;
+    height: 100%;
+    margin-left: 5px;
+    line-height: 75px;
+}
