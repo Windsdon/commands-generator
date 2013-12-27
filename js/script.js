@@ -295,6 +295,13 @@ var Enchantments = {
         return -1;
     },
 
+    makeEnchantment: function (id, lvl) {
+        return {
+            id: id,
+            lvl: lvl
+        }
+    },
+
     makeList: function (enchList, labelText, fieldId, fieldClass) {
         valList = new Array();
         i = 0;
@@ -446,18 +453,29 @@ function showItemDialog(itemObject, callback) {
     new ItemDialog(itemObject);
 }
 
-function EnchantingDialog(ench, callback) {
+function EnchantingDialog(ench, caller, callback) {
     this.container = $("<div/>", {
         title: "Add enchantment"
-    });
-    this.itemSelector = Enchantments.makeList(ench, "Enchantment", "enchDialogLevel", "dialogInput ui-widget-content ui-corner-all");
-    this.container.append(this.itemSelector.holder);
-    this.container.append(makeLabeledInput("Level", "enchDialogLevel", "dialogInput ui-widget-content ui-corner-all"));
-    this.enchCallback = callback;
+    }).data("owner", this);
+
+    this.enchSelector = Enchantments.makeList(ench, "Enchantment", "enchDialogType", "dialogInput ui-widget-content ui-corner-all");
+    this.levelInput = makeLabeledInput("Level", "enchDialogLevel", "dialogInput ui-widget-content ui-corner-all");
+    this.container.append(this.enchSelector);
+    this.container.append(this.levelInput);
+
+    this.callback = callback;
+    this.caller = caller;
 
     this.diagCallback = function () {
-        callback();
+        owner = $(this).data("owner");
+        owner.caller[owner.callback](owner);
         $(this).dialog("close");
+    };
+
+    this.getEnchantment = function () {
+        var selected = parseInt(this.enchSelector.children("select").children("option:selected").val());
+        var level = parseInt(this.levelInput.children("input").val());
+        return Enchantments.makeEnchantment(selected, level);
     };
 
     diag = this;
@@ -476,8 +494,8 @@ function EnchantingDialog(ench, callback) {
     });
 }
 
-function createEnchantingDialog(callback) {
-    return new EnchantingDialog(Enchantments.list, callback);
+function createEnchantingDialog(caller, callback) {
+    return new EnchantingDialog(Enchantments.list, caller, callback);
 }
 
 function ItemSelectDialog(itemList, multiple, caller, callback) {
@@ -529,55 +547,553 @@ function showItemSelectDialog(itemList, multiple, caller, callback) {
 }
 
 var PlayerSelector = {
-    defaultLabel: "Player",
+    defaultLabel: "@a",
 
-    create: function(to) {
-        if(typeof to === "undefined"){
+    create: function (to) {
+        if (typeof to === "undefined") {
             to = PlayerSelector.defaultLabel;
         }
 
+        this.container = $("<div/>", {
+            "class": "guiPlayerSelectorInterface"
+        }).data("owner", this);
 
+        this.textElem = makeLabeledInput("Player Selector", "playerSelectorText", "dialogInput ui-widget-content ui-corner-all");
+        this.createSelectorButton = $("<div/>").text("Create Selector").button().data("owner", this);
+
+        this.container.append(this.textElem);
+        this.container.append(this.createSelectorButton);
+
+        this.target = new PlayerSelector.target("@a", [
+            new PlayerSelector.selector.position(0, 0, 0),
+            new PlayerSelector.selector.gamemode(1),
+            new PlayerSelector.selector.team("green", false)
+        ]);
+
+        this.createDialog = function () {
+            this.dialog = new PlayerSelector.dialog(this.target, this, "updateText");
+        };
+
+        this.createSelectorButton.click(function(){
+            var owner = $(this).data("owner");
+            owner.createDialog();
+        });
+
+        this.updateText = function () {
+            console.info("This ", this);
+            console.log("Value: ", this.target.getString());
+            this.textElem.children("input").val(this.target.getString());
+        };
+
+        this.updateText();
+    },
+
+    //target is used to fill the fields ONLY, and is not modified when saving
+    dialog: function (target, owner, callback) {
+        this.container = $("<div/>", {
+            title: "Create Selector"
+        }).data("owner", this);
+
+        this.owner = owner;
+        this.callback = callback;
+
+        this.targetSelector = makeSelect([
+            {
+                name: "@a",
+                value: "@a"
+            },
+            {
+                name: "@p",
+                value: "@p"
+            },
+            {
+                name: "@r",
+                value: "@r"
+            }
+        ], "targetSelector", "dialogInput ui-widget-content ui-corner-all", target.target);
+
+        this.makeSelector = function(model, values){
+            var container = $("<div/>", {
+                "class": "selectorLine"
+            });
+
+            container.append($("<div/>").text(model.name).css({
+                fontWeight: "bold",
+                marginTop: "10px",
+                marginBottom: "2px"
+            }));
+
+            for(var k in model.fields){
+                var field = model.fields[k];
+                var fieldContainer = $("<label/>").text(field.label).css("color", "#888");
+                var fieldObject;
+
+                console.log(field);
+
+                if(field.type == "text"){
+                    fieldObject = $("<input>", {
+                        "type": "text",
+                        "class": "ui-widget-content ui-corner-all"
+                    }).attr("size", "10");
+
+                    if(typeof values[field.id] != "undefined"){
+                        fieldObject.val(values[field.id]);
+                    }
+                }else if(field.type == "select"){
+                    fieldObject = $("<select/>", {
+                        "class": "ui-widget-content ui-corner-all"
+                    });
+
+                    for(var l in model.fields[k].options){
+                        var option = model.fields[k].options[l];
+
+                        var optionObject = $("<option/>", {
+                            value: option.value
+                        }).text(option.label);
+
+                        if(typeof values[field.id] != "undefined"){
+                            if(values[field.id] == option.value){
+                                optionObject.attr("selected", "true");
+                            }
+                        }
+
+                        fieldObject.append(optionObject);
+                    }
+                }
+
+                fieldContainer.append(fieldObject);
+
+                container.append(fieldContainer);
+            }
+
+            return container;
+        };
+
+        var list = PlayerSelector.selector.list;
+        for (var k in list) {
+            var match = false;
+            for (var l in target.selector) {
+                if (target.selector[l].id == list[k].id) {
+                    match = l;
+                    break;
+                }
+            }
+
+            if (match !== false) {
+                this.container.append(this.makeSelector(list[k], target.selector[match]));
+            }else{
+                this.container.append(this.makeSelector(list[k], {}));
+            }
+        }
+
+        this.container.dialog({
+            modal: true,
+            width: 800
+        });
+    },
+
+    // intended to be used as "new PlayerSelector.target(...)"
+    target: function (target, selector) {
+        this.target = (typeof target === "undefined") ? "@a" : target;
+        this.selector = (typeof selector === "undefined") ? [] : selector;
+
+        this.getString = function () {
+            var str = "";
+
+            str += this.target;
+
+            if (this.selector.length > 0) {
+                str += "[";
+                var count = 0;
+
+                for (var k in this.selector) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+                    count++;
+                    str += this.selector[k].getString();
+                }
+
+                str += "]";
+            }
+
+            return str;
+        }
+    },
+
+    //all of these are constructors
+    selector: {
+        //correspondence for form creation
+        list: [
+            {
+                id: "position",
+                name: "Position",
+                fields: [
+                    {
+                        label: "x",
+                        id: "x",
+                        type: "text"
+                    },
+                    {
+                        label: "y",
+                        id: "y",
+                        type: "text"
+                    },
+                    {
+                        label: "z",
+                        id: "z",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "team",
+                name: "Team",
+                fields: [
+                    {
+                        label: "Team",
+                        id: "team",
+                        type: "text"
+                    },
+                    {
+                        label: "Operation",
+                        id: "condition",
+                        type: "select",
+                        options: [
+                            {
+                                label: "IS",
+                                value: "1"
+                            },
+                            {
+                                label: "IS NOT",
+                                value: "0"
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: "radius",
+                name: "Radius",
+                fields: [
+                    {
+                        label: "Max",
+                        id: "max",
+                        type: "text"
+                    },
+                    {
+                        label: "Min",
+                        id: "min",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "gamemode",
+                name: "Gamemode",
+                fields: [
+                    {
+                        label: "",
+                        id: "gm",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "level",
+                name: "Exp level",
+                fields: [
+                    {
+                        label: "Max",
+                        id: "max",
+                        type: "text"
+                    },
+                    {
+                        label: "Min",
+                        id: "min",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "count",
+                name: "Player Count",
+                fields: [
+                    {
+                        label: "",
+                        id: "c",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "score",
+                name: "Score",
+                fields: [
+                    {
+                        label: "Name",
+                        id: "name",
+                        type: "text"
+                    },
+                    {
+                        label: "Min",
+                        id: "min",
+                        type: "text"
+                    },
+                    {
+                        label: "Max",
+                        id: "max",
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "name",
+                name: "Player name",
+                fields: [
+                    {
+                        label: "Name",
+                        id: "name",
+                        type: "text"
+                    },
+                    {
+                        label: "Operation",
+                        id: "condition",
+                        type: "select",
+                        options: [
+                            {
+                                label: "IS",
+                                value: "1"
+                            },
+                            {
+                                label: "IS NOT",
+                                value: "0"
+                            }
+                        ]
+                    }
+                ]
+            }
+        ],
+        position: function (x, y, z) {
+            this.x = (typeof x === "undefined") ? false : x;
+            this.y = (typeof y === "undefined") ? false : y;
+            this.z = (typeof z === "undefined") ? false : z;
+
+            this.id = "position"; //for construction
+
+            this.getString = function () {
+                var x = this.x;
+                var y = this.y;
+                var z = this.z;
+                var count = 0;
+                var str = "";
+                if (x !== false) {
+                    count++;
+                    str += "x=" + x;
+                }
+
+                if (y !== false) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+                    count++;
+                    str += "y=" + y;
+                }
+
+                if (z !== false) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+                    count++;
+
+                    str += "z=" + z;
+                }
+
+                return str;
+            }
+        },
+
+        team: function (team, condition) {
+            this.team = team;
+            this.condition = (typeof condition === "undefined") ? true : condition;
+
+            this.id = "team";
+
+            this.getString = function () {
+                var str = "";
+                str += "team=";
+                if (!this.condition) {
+                    str += "!";
+                }
+                str += this.team;
+
+                return str;
+            }
+        },
+
+        radius: function (max, min) {
+            this.min = (typeof min === "undefined") ? false : min;
+            this.max = (typeof max === "undefined") ? false : max;
+
+            this.id = "radius";
+
+            this.getString = function () {
+                var str = "";
+                var count = 0;
+                if (this.min !== false) {
+                    str += "rm=" + this.min;
+                    count++;
+                }
+
+                if (this.max !== false) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+                    str += "r=" + this.max;
+                }
+
+                return str;
+            }
+        },
+
+        gamemode: function (gm) {
+            this.gm = (typeof gm === "undefined") ? -1 : gm;
+
+            this.id = "gamemode";
+
+            this.getString = function () {
+                var str = "";
+                if (gm >= 0) {
+                    str += "m=" + this.gm;
+                }
+
+                return str;
+            }
+        },
+
+        number: function (c) {
+            this.c = (typeof c === "undefined") ? false : c;
+
+            this.id = "number";
+
+            this.getString = function () {
+                var str = "";
+                if (c !== false) {
+                    str += "c=" + this.c;
+                }
+
+                return str;
+            }
+        },
+
+        level: function (min, max) {
+            this.min = (typeof min === "undefined") ? false : min;
+            this.max = (typeof max === "undefined") ? false : max;
+
+            this.id = "level";
+
+            this.getString = function () {
+                var str;
+                var count = 0;
+
+                if (this.min !== false) {
+                    count++;
+                    str += "lm=" + this.min;
+                }
+
+                if (this.max !== false) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+
+                    str += "l=" + this.max;
+                }
+
+                return str;
+            }
+        },
+
+        score: function (name, min, max) {
+            this.name = name;
+            this.min = (typeof min === "undefined") ? false : min;
+            this.max = (typeof max === "undefined") ? false : max;
+
+            this.id = "score";
+
+            this.getString = function () {
+                var str;
+                var count = 0;
+
+                if (this.min !== false) {
+                    count++;
+                    str += "score_" + this.name + "_min=" + this.min;
+                }
+
+                if (this.max !== false) {
+                    if (count > 0) {
+                        str += ",";
+                    }
+
+                    str += "score_" + this.name + "=" + this.max;
+                }
+
+                return str;
+            }
+        },
+
+        name: function (name, condition) {
+            this.name = name;
+            this.condition = (typeof condition === "undefined") ? false : condition;
+
+            this.id = "name";
+
+            this.getString = function () {
+                var str = "";
+                str += "name=";
+                if (!this.condition) {
+                    str += "!";
+                }
+                str += this.name;
+
+                return str;
+            }
+        }
     }
 }
 
 //Handles unique dialogs, such as create command, enchants list, side item list
 var GUI = {
-    commandsGenerators: {
-        give: {
-            name: "/give",
-            generator: GUI.generators.give
-        }
-    },
+        commands: {
+            give: {
+                dialog: function () {
+                    this.holder = $("<div/>", {
+                        "class": "dialogCommand",
+                        "title": "/give"
+                    }).data("owner", this);
 
-    generators: {
-        give: {
-            dialog: function(){
-                this.holder = $("<div/>", {
-                    "class": "dialogCommand"
-                }).data("owner", this);
+                    var spacer = $("<br/>");
 
-                this.itemSelector = new ItemEditor.baseItemSelector(ItemRegister.getById(1), ItemRegister.getAllItems());
-                this.playerSelector = new PlayerSelector.create();
+                    this.enchSelector = new ItemEditor.BaseItemSelector(ItemRegister.getById(1), ItemRegister.getAllItems());
+                    this.playerSelector = new PlayerSelector.create();
 
-                this.holder.append(this.itemSelector.holder)
-            },
-            command: function(obj){
+                    this.holder.append(this.enchSelector.holder);
+                    this.holder.append(spacer);
+                    this.holder.append(this.playerSelector.container);
 
+                    this.holder.dialog({
+                        width: 600
+                    });
+                },
+                command: function (obj) {
+                }
             }
+        },
+
+        init: function () {
+
         }
-    },
-
-    init: function(){
-        GUI.commands = new GUI.createCommands();
-    },
-
-    createCommands: function(){
-        this.holder = $("<div/>", {
-            "class": "dialogCommands"
-        }).data("owner", this);
-
     }
-};
+    ;
 
 $(document).ready(function (e) {
     $(".navButton").button().click(function (event) {
