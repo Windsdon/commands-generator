@@ -564,24 +564,23 @@ var PlayerSelector = {
         this.container.append(this.textElem);
         this.container.append(this.createSelectorButton);
 
-        this.target = new PlayerSelector.target("@a", [
-            new PlayerSelector.selector.position(0, 0, 0),
-            new PlayerSelector.selector.gamemode(1),
-            new PlayerSelector.selector.team("green", false)
-        ]);
+        this.target = new PlayerSelector.target("@a");
 
         this.createDialog = function () {
-            this.dialog = new PlayerSelector.dialog(this.target, this, "updateText");
+            this.dialog = new PlayerSelector.dialog(this.target, this, "targetCallback");
         };
 
-        this.createSelectorButton.click(function(){
+        this.createSelectorButton.click(function () {
             var owner = $(this).data("owner");
             owner.createDialog();
         });
 
-        this.updateText = function () {
-            console.info("This ", this);
-            console.log("Value: ", this.target.getString());
+        this.targetCallback = function(newTarget){
+            this.target = newTarget;
+            this.updateText();
+        };
+
+        this.updateText = function () {''
             this.textElem.children("input").val(this.target.getString());
         };
 
@@ -596,6 +595,77 @@ var PlayerSelector = {
 
         this.owner = owner;
         this.callback = callback;
+
+        this.actionSave = function () {
+            var owner = $(this).data("owner");
+
+            //create the new target object
+            var atTarget = owner.targetSelector.children("option:selected").val();
+
+            //parsing the data in the fields
+            //we asume the field order is the same as the list order
+            var selectors = new Array();
+            var searchLines = owner.container.children(".selectorLine");
+
+            for (var i = 0; i < searchLines.length; i++) {
+                var model = PlayerSelector.selector.list[i];
+                var fields = $(searchLines[i]).children("label").children("");
+
+                var params = new Array();
+
+                for (var j = 0; j < fields.length; j++) {
+                    var val;
+                    if ($(fields[j]).is("input")) {
+                        val = $(fields[j]).val();
+                    } else {
+                        //select
+                        val = $(fields[j]).children("option:selected").val();
+                    }
+
+                    if (val !== "") {
+                        if (typeof model.fields[j].evaluate !== "undefined") {
+                            if (model.fields[j].evaluate === "number") {
+                                val = Number(val);
+                            } else if (model.fields[j].evaluate === "bool") {
+                                val = (val === 1 || val === "true" || val === "1");
+                            }
+                        }
+                    } else {
+                        val = undefined;
+                    }
+
+                    if (typeof val === "undefined" && model.fields[j].required) {
+                        params = false;
+                        break;
+                    }
+
+                    params.push(val);
+                }
+                if (params !== false) {
+                    var allUndefined = true;
+
+                    for (var j = 0; j < params.length; j++) {
+                        if (typeof params[j] !== "undefined") {
+                            allUndefined = false;
+                            break;
+                        }
+                    }
+
+                    if (!allUndefined) {
+                        var obj = {};
+                        PlayerSelector.selector[model.id].apply(obj, params); // wut
+                        selectors.push(obj);
+                    }
+                }
+            }
+
+            var target = new PlayerSelector.target(atTarget, selectors);
+
+            owner.owner[owner.callback](target);
+
+            $(owner.container).dialog("close");
+
+        }
 
         this.targetSelector = makeSelect([
             {
@@ -612,47 +682,53 @@ var PlayerSelector = {
             }
         ], "targetSelector", "dialogInput ui-widget-content ui-corner-all", target.target);
 
-        this.makeSelector = function(model, values){
+        this.container.append(this.targetSelector);
+
+        this.makeSelector = function (model, values) {
             var container = $("<div/>", {
                 "class": "selectorLine"
             });
 
-            container.append($("<div/>").text(model.name).css({
-                fontWeight: "bold",
-                marginTop: "10px",
-                marginBottom: "2px"
-            }));
+            container.append($("<div/>", {
+                    title: model.description
+                }).text(model.name).css({
+                        fontWeight: "bold",
+                        marginTop: "10px",
+                        marginBottom: "2px",
+                    })).tooltip({
+                    track: true,
+                    show: false,
+                    hide: false
+                });
 
-            for(var k in model.fields){
+            for (var k in model.fields) {
                 var field = model.fields[k];
-                var fieldContainer = $("<label/>").text(field.label).css("color", "#888");
+                var fieldContainer = $("<label/>").text(field.label + ": ").css("color", "#888");
                 var fieldObject;
 
-                console.log(field);
-
-                if(field.type == "text"){
+                if (field.type == "text") {
                     fieldObject = $("<input>", {
                         "type": "text",
-                        "class": "ui-widget-content ui-corner-all"
-                    }).attr("size", "10");
+                        "class": "ui-widget-content ui-corner-all",
+                    }).attr("size", "10").css("marginRight", 10);
 
-                    if(typeof values[field.id] != "undefined"){
+                    if (typeof values[field.id] != "undefined" && values[field.id] !== false) {
                         fieldObject.val(values[field.id]);
                     }
-                }else if(field.type == "select"){
+                } else if (field.type == "select") {
                     fieldObject = $("<select/>", {
                         "class": "ui-widget-content ui-corner-all"
                     });
 
-                    for(var l in model.fields[k].options){
+                    for (var l in model.fields[k].options) {
                         var option = model.fields[k].options[l];
 
                         var optionObject = $("<option/>", {
                             value: option.value
                         }).text(option.label);
 
-                        if(typeof values[field.id] != "undefined"){
-                            if(values[field.id] == option.value){
+                        if (typeof values[field.id] != "undefined") {
+                            if (values[field.id] == option.value) {
                                 optionObject.attr("selected", "true");
                             }
                         }
@@ -681,14 +757,20 @@ var PlayerSelector = {
 
             if (match !== false) {
                 this.container.append(this.makeSelector(list[k], target.selector[match]));
-            }else{
+            } else {
                 this.container.append(this.makeSelector(list[k], {}));
             }
         }
 
         this.container.dialog({
             modal: true,
-            width: 800
+            width: 800,
+            buttons: {
+                "OK": this.actionSave,
+                "Cancel": function () {
+                    $(this).dialog("close");
+                }
+            }
         });
     },
 
@@ -728,20 +810,46 @@ var PlayerSelector = {
             {
                 id: "position",
                 name: "Position",
+                description: "The center for the search. If not specified, centers at the command block. Cannot be relative.",
                 fields: [
                     {
                         label: "x",
                         id: "x",
+                        evaluate: "number",
+                        required: true,
                         type: "text"
                     },
                     {
                         label: "y",
                         id: "y",
+                        evaluate: "number",
+                        required: true,
                         type: "text"
                     },
                     {
                         label: "z",
                         id: "z",
+                        evaluate: "number",
+                        required: true,
+                        type: "text"
+                    }
+                ]
+            },
+            {
+                id: "radius",
+                name: "Radius",
+                description: "The minimum and maximum distances from the centre.",
+                fields: [
+                    {
+                        label: "Max",
+                        id: "max",
+                        evaluate: "number",
+                        type: "text"
+                    },
+                    {
+                        label: "Min",
+                        id: "min",
+                        evaluate: "number",
                         type: "text"
                     }
                 ]
@@ -749,23 +857,26 @@ var PlayerSelector = {
             {
                 id: "team",
                 name: "Team",
+                description: "Tests if the player is (or is not) in that team",
                 fields: [
                     {
                         label: "Team",
                         id: "team",
+                        required: true,
                         type: "text"
                     },
                     {
                         label: "Operation",
                         id: "condition",
                         type: "select",
+                        evaluate: "bool",
                         options: [
                             {
-                                label: "IS",
+                                label: "=",
                                 value: "1"
                             },
                             {
-                                label: "IS NOT",
+                                label: "=!",
                                 value: "0"
                             }
                         ]
@@ -773,28 +884,15 @@ var PlayerSelector = {
                 ]
             },
             {
-                id: "radius",
-                name: "Radius",
-                fields: [
-                    {
-                        label: "Max",
-                        id: "max",
-                        type: "text"
-                    },
-                    {
-                        label: "Min",
-                        id: "min",
-                        type: "text"
-                    }
-                ]
-            },
-            {
                 id: "gamemode",
                 name: "Gamemode",
+                description: "The gamemode the player has to be in. -1 or empty for any.",
                 fields: [
                     {
-                        label: "",
+                        label: "Gamemode",
                         id: "gm",
+                        required: true,
+                        evaluate: "number",
                         type: "text"
                     }
                 ]
@@ -802,26 +900,32 @@ var PlayerSelector = {
             {
                 id: "level",
                 name: "Exp level",
+                description: "Tests for this range of levels.",
                 fields: [
                     {
                         label: "Max",
                         id: "max",
+                        evaluate: "number",
                         type: "text"
                     },
                     {
                         label: "Min",
                         id: "min",
+                        evaluate: "number",
                         type: "text"
                     }
                 ]
             },
             {
-                id: "count",
+                id: "number",
                 name: "Player Count",
+                description: "The maximum number of players to target. If negative, reverses the order (@p)",
                 fields: [
                     {
-                        label: "",
+                        label: "Maximum",
                         id: "c",
+                        required: true,
+                        evaluate: "number",
                         type: "text"
                     }
                 ]
@@ -829,20 +933,24 @@ var PlayerSelector = {
             {
                 id: "score",
                 name: "Score",
+                description: "Tests for that range of that score",
                 fields: [
                     {
                         label: "Name",
                         id: "name",
+                        required: true,
                         type: "text"
                     },
                     {
                         label: "Min",
                         id: "min",
+                        evaluate: "number",
                         type: "text"
                     },
                     {
                         label: "Max",
                         id: "max",
+                        evaluate: "number",
                         type: "text"
                     }
                 ]
@@ -850,23 +958,26 @@ var PlayerSelector = {
             {
                 id: "name",
                 name: "Player name",
+                description: "The name of the player",
                 fields: [
                     {
                         label: "Name",
                         id: "name",
+                        required: true,
                         type: "text"
                     },
                     {
                         label: "Operation",
                         id: "condition",
                         type: "select",
+                        evaluate: "bool",
                         options: [
                             {
-                                label: "IS",
+                                label: "=",
                                 value: "1"
                             },
                             {
-                                label: "IS NOT",
+                                label: "=!",
                                 value: "0"
                             }
                         ]
@@ -889,7 +1000,7 @@ var PlayerSelector = {
                 var str = "";
                 if (x !== false) {
                     count++;
-                    str += "x=" + x;
+                    str += "x=" + Number(x);
                 }
 
                 if (y !== false) {
@@ -897,7 +1008,7 @@ var PlayerSelector = {
                         str += ",";
                     }
                     count++;
-                    str += "y=" + y;
+                    str += "y=" + Number(y);
                 }
 
                 if (z !== false) {
@@ -906,7 +1017,7 @@ var PlayerSelector = {
                     }
                     count++;
 
-                    str += "z=" + z;
+                    str += "z=" + Number(z);
                 }
 
                 return str;
@@ -986,14 +1097,14 @@ var PlayerSelector = {
             }
         },
 
-        level: function (min, max) {
+        level: function (max, min) {
             this.min = (typeof min === "undefined") ? false : min;
             this.max = (typeof max === "undefined") ? false : max;
 
             this.id = "level";
 
             this.getString = function () {
-                var str;
+                var str = "";
                 var count = 0;
 
                 if (this.min !== false) {
@@ -1021,7 +1132,7 @@ var PlayerSelector = {
             this.id = "score";
 
             this.getString = function () {
-                var str;
+                var str = "";
                 var count = 0;
 
                 if (this.min !== false) {
@@ -1065,6 +1176,9 @@ var PlayerSelector = {
 var GUI = {
         commands: {
             give: {
+                /**
+                 * Creates the give dialog
+                 */
                 dialog: function () {
                     this.holder = $("<div/>", {
                         "class": "dialogCommand",
@@ -1089,8 +1203,12 @@ var GUI = {
             }
         },
 
-        init: function () {
+        dialogs: {
 
+        },
+
+        init: function () {
+            GUI.dialogs.give = new GUI.commands.give.dialog();
         }
     }
     ;
